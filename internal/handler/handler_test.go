@@ -50,6 +50,7 @@ func TestShortenHandler_returnsDifferentCOdes(t *testing.T) {
 	}
 
 }
+
 func TestShortenHandler_savesCodeInMemory(t *testing.T) {
 	ResetStore()
 
@@ -90,5 +91,19 @@ func TestShortenHandler_redirectsToOriginalURL(t *testing.T) {
 	location := rr.Header().Get("Location")
 	if location != "https://golang.org" {
 		t.Fatalf("expected redirect to 'https://golang.org', got %s", location)
+	}
+}
+
+func TestShortenHandler_404IfCodeNotFound(t *testing.T) {
+	ResetStore()
+	req := httptest.NewRequest(http.MethodGet, "/nope123", nil)
+	rr := httptest.NewRecorder()
+
+	r := chi.NewRouter()
+	r.Get("/{code}", RedirectHandler)
+	r.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("expected status code to be %d, got %d", http.StatusNotFound, rr.Code)
 	}
 }
