@@ -3,6 +3,7 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/go-chi/chi/v5"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -68,5 +69,26 @@ func TestShortenHandler_savesCodeInMemory(t *testing.T) {
 	found, ok := GetURL(code)
 	if !ok || found != "https://example.com" {
 		t.Fatalf("expected to find a saved url, got: %v (ok=%v)", found, ok)
+	}
+}
+
+func TestShortenHandler_redirectsToOriginalURL(t *testing.T) {
+	ResetStore()
+	saveURL("xyz789", "https://golang.org")
+
+	req := httptest.NewRequest(http.MethodGet, "/xyz789", nil)
+	rr := httptest.NewRecorder()
+
+	r := chi.NewRouter()
+	r.Get("/{code}", RedirectHandler)
+	r.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusFound {
+		t.Fatalf("expected status code to be %d, got %d", http.StatusFound, rr.Code)
+	}
+
+	location := rr.Header().Get("Location")
+	if location != "https://golang.org" {
+		t.Fatalf("expected redirect to 'https://golang.org', got %s", location)
 	}
 }

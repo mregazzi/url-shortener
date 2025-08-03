@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"github.com/go-chi/chi/v5"
 	"math/rand"
 	"net/http"
 	"sync"
@@ -65,4 +66,16 @@ func ResetStore() {
 	mu.Lock()
 	defer mu.Unlock()
 	store = make(map[string]string)
+}
+
+func RedirectHandler(w http.ResponseWriter, r *http.Request) {
+	code := chi.URLParam(r, "code")
+
+	url, ok := GetURL(code)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+
+	http.Redirect(w, r, url, http.StatusFound)
 }
