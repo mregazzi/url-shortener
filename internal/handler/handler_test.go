@@ -47,4 +47,26 @@ func TestShortenHandler_returnsDifferentCOdes(t *testing.T) {
 	if !ok || len(code) != 6 {
 		t.Fatalf("expected a code of length 6, got: %v", code)
 	}
+
+}
+func TestShortenHandler_savesCodeInMemory(t *testing.T) {
+	ResetStore()
+
+	body := []byte(`{"url":"https://example.com"}`)
+	req := httptest.NewRequest(http.MethodPost, "/shorten", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	ShortenHandler(rr, req)
+
+	var resp map[string]string
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatalf("cannot decode response: %v", err)
+	}
+
+	code := resp["code"]
+	found, ok := GetURL(code)
+	if !ok || found != "https://example.com" {
+		t.Fatalf("expected to find a saved url, got: %v (ok=%v)", found, ok)
+	}
 }

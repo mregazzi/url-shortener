@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"math/rand"
 	"net/http"
+	"sync"
 	"time"
 )
 
@@ -24,6 +25,7 @@ func ShortenHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	code := generateCode(6)
+	saveURL(code, req.URL)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(shortenResponse{Code: code})
@@ -39,4 +41,28 @@ func generateCode(n int) string {
 		b[i] = letters[randGen.Intn(len(letters))]
 	}
 	return string(b)
+}
+
+var (
+	store = make(map[string]string)
+	mu    = sync.RWMutex{}
+)
+
+func saveURL(code, url string) {
+	mu.Lock()
+	defer mu.Unlock()
+	store[code] = url
+}
+
+func GetURL(code string) (string, bool) {
+	mu.RLock()
+	defer mu.RUnlock()
+	url, ok := store[code]
+	return url, ok
+}
+
+func ResetStore() {
+	mu.Lock()
+	defer mu.Unlock()
+	store = make(map[string]string)
 }
