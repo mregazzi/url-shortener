@@ -25,9 +25,25 @@ func ShortenHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	code := codeGenerator()
-	if _, exists := GetURL(code); exists {
-		http.Error(w, "generated code already exists", http.StatusInternalServerError)
+	//code := codeGenerator()
+	//if _, exists := GetURL(code); exists {
+	//	http.Error(w, "generated code already exists", http.StatusInternalServerError)
+	//	return
+	//}
+
+	const maxAttempts = 5
+	var code string
+
+	for i := 0; i < maxAttempts; i++ {
+		candidate := codeGenerator()
+		if _, exists := GetURL(candidate); !exists {
+			code = candidate
+			break
+		}
+	}
+
+	if code == "" {
+		http.Error(w, "unable to generate unique code", http.StatusInternalServerError)
 		return
 	}
 

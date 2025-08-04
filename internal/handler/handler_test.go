@@ -127,3 +127,33 @@ func TestShortenHandler_avoidDuplicateCodes(t *testing.T) {
 
 	}
 }
+
+func TestShortenHandler_failsAfterTooManyDuplicates(t *testing.T) {
+	ResetStore()
+	usedCodes := []string{"a1", "a2", "a3", "a4", "a5"}
+	for _, c := range usedCodes {
+		saveURL(c, "https://old.com"+c)
+	}
+
+	attempts := 0
+	restore := SetCodeGenerator(func() string {
+		attempts++
+		return usedCodes[(attempts-1)%len(usedCodes)]
+	})
+	defer restore()
+
+	body := []byte(`{"url":"https://new.com"}`)
+	req := httptest.NewRequest(http.MethodPost, "/shorten", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	ShortenHandler(rr, req)
+
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status code to be %d, got %d", http.StatusInternalServerError, rr.Code)
+	}
+
+	if attempts != 5 {
+		t.Fatalf("expected 5 attempts, got %d", attempts)
+	}
+}
