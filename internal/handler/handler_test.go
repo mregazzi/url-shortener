@@ -107,3 +107,23 @@ func TestShortenHandler_404IfCodeNotFound(t *testing.T) {
 		t.Fatalf("expected status code to be %d, got %d", http.StatusNotFound, rr.Code)
 	}
 }
+
+func TestShortenHandler_avoidDuplicateCodes(t *testing.T) {
+	ResetStore()
+	const already_present_code = "abc123"
+	saveURL(already_present_code, "https://already-present.org")
+
+	restore := SetCodeGenerator(func() string { return already_present_code })
+	defer restore()
+
+	body := []byte(`{"url":"https://new-url.org"}`)
+	req := httptest.NewRequest(http.MethodPost, "/shorten", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	ShortenHandler(rr, req)
+
+	if rr.Code != http.StatusInternalServerError {
+
+	}
+}

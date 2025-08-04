@@ -25,7 +25,12 @@ func ShortenHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	code := generateCode(6)
+	code := codeGenerator()
+	if _, exists := GetURL(code); exists {
+		http.Error(w, "generated code already exists", http.StatusInternalServerError)
+		return
+	}
+
 	saveURL(code, req.URL)
 
 	w.Header().Set("Content-Type", "application/json")
@@ -34,6 +39,18 @@ func ShortenHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 var randGen = rand.New(rand.NewSource(time.Now().UnixNano()))
+
+var codeGenerator = func() string {
+	return generateCode(6)
+}
+
+func SetCodeGenerator(f func() string) (restore func()) {
+	old := codeGenerator
+	codeGenerator = f
+	return func() {
+		codeGenerator = old
+	}
+}
 
 func generateCode(n int) string {
 	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
