@@ -7,8 +7,12 @@ import (
 	"net/http"
 	"sync"
 	"time"
+	"url-shortener/internal/storage"
 )
 
+type Handler struct {
+	Store *storage.MongoStore
+}
 type shortenRequest struct {
 	URL string `json:"url"`
 }
@@ -17,19 +21,13 @@ type shortenResponse struct {
 	Code string `json:"code"`
 }
 
-func ShortenHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) ShortenHandler(w http.ResponseWriter, r *http.Request) {
 	var req shortenRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.URL == "" {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
-
-	//code := codeGenerator()
-	//if _, exists := GetURL(code); exists {
-	//	http.Error(w, "generated code already exists", http.StatusInternalServerError)
-	//	return
-	//}
 
 	const maxAttempts = 5
 	var code string
@@ -41,13 +39,18 @@ func ShortenHandler(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
-
 	if code == "" {
 		http.Error(w, "unable to generate unique code", http.StatusInternalServerError)
 		return
 	}
 
-	saveURL(code, req.URL)
+	err := h.Store.Save(code, req.URL)
+	if err != nil {
+		http.Error(w, "failed to save", http.StatusInternalServerError)
+		return
+	}
+
+	//saveURL(code, req.URL)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(shortenResponse{Code: code})
@@ -101,11 +104,15 @@ func ResetStore() {
 	store = make(map[string]string)
 }
 
-func RedirectHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) RedirectHandler(w http.ResponseWriter, r *http.Request) {
 	code := chi.URLParam(r, "code")
 
-	url, ok := GetURL(code)
-	if !ok {
+	url, found, err := h.Store.Get(code)
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	if !found {
 		http.NotFound(w, r)
 		return
 	}
