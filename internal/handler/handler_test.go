@@ -136,7 +136,6 @@ func TestShortenHandler_avoidDuplicateCodes(t *testing.T) {
 }
 
 func TestShortenHandler_failsAfterTooManyDuplicates(t *testing.T) {
-	ResetStore()
 	usedCodes := []string{"a1", "a2", "a3", "a4", "a5"}
 	for _, c := range usedCodes {
 		saveURL(c, "https://old.com"+c)
