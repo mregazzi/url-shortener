@@ -7,16 +7,16 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"url-shortener/internal/storage"
 )
 
 func TestShortenHandler(t *testing.T) {
 	body := []byte(`{"url":"https://example.com"}`)
 	req := httptest.NewRequest(http.MethodPost, "/shorten", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
-
+	h := &Handler{Store: storage.NewInMemoryStore()}
 	rr := httptest.NewRecorder()
-
-	ShortenHandler(rr, req)
+	h.ShortenHandler(rr, req)
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected 200 OK, got %d", rr.Code)
@@ -27,13 +27,13 @@ func TestShortenHandler(t *testing.T) {
 	}
 }
 
-func TestShortenHandler_returnsDifferentCOdes(t *testing.T) {
+func TestShortenHandler_returnsDifferentCodes(t *testing.T) {
 	body := []byte(`{"url":"https://example.com"}`)
 	req := httptest.NewRequest(http.MethodPost, "/shorten", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-
+	h := &Handler{Store: storage.NewInMemoryStore()}
 	rr := httptest.NewRecorder()
-	ShortenHandler(rr, req)
+	h.ShortenHandler(rr, req)
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected 200 OK, got %d", rr.Code)
@@ -52,14 +52,15 @@ func TestShortenHandler_returnsDifferentCOdes(t *testing.T) {
 }
 
 func TestShortenHandler_savesCodeInMemory(t *testing.T) {
-	ResetStore()
+	store := storage.NewInMemoryStore() // crea e tieni il riferimento
+	h := &Handler{Store: store}
 
 	body := []byte(`{"url":"https://example.com"}`)
 	req := httptest.NewRequest(http.MethodPost, "/shorten", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-
 	rr := httptest.NewRecorder()
-	ShortenHandler(rr, req)
+
+	h.ShortenHandler(rr, req)
 
 	var resp map[string]string
 	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
@@ -67,21 +68,27 @@ func TestShortenHandler_savesCodeInMemory(t *testing.T) {
 	}
 
 	code := resp["code"]
-	found, ok := GetURL(code)
-	if !ok || found != "https://example.com" {
-		t.Fatalf("expected to find a saved url, got: %v (ok=%v)", found, ok)
+
+	url, ok, err := store.Get(code) // accedi allo stesso store usato dall’handler
+	if err != nil {
+		t.Fatalf("unexpected error getting url: %v", err)
+	}
+	if !ok || url != "https://example.com" {
+		t.Fatalf("expected to find a saved url, got: %v (ok=%v)", url, ok)
 	}
 }
 
 func TestShortenHandler_redirectsToOriginalURL(t *testing.T) {
-	ResetStore()
-	saveURL("xyz789", "https://golang.org")
+	store := storage.NewInMemoryStore()
+	_ = store.Save("xyz789", "https://golang.org")
+
+	h := &Handler{Store: store}
 
 	req := httptest.NewRequest(http.MethodGet, "/xyz789", nil)
 	rr := httptest.NewRecorder()
 
 	r := chi.NewRouter()
-	r.Get("/{code}", RedirectHandler)
+	r.Get("/{code}", h.RedirectHandler)
 	r.ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusFound {
@@ -98,9 +105,9 @@ func TestShortenHandler_404IfCodeNotFound(t *testing.T) {
 	ResetStore()
 	req := httptest.NewRequest(http.MethodGet, "/nope123", nil)
 	rr := httptest.NewRecorder()
-
+	h := &Handler{Store: storage.NewInMemoryStore()}
 	r := chi.NewRouter()
-	r.Get("/{code}", RedirectHandler)
+	r.Get("/{code}", h.RedirectHandler)
 	r.ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusNotFound {
@@ -119,9 +126,9 @@ func TestShortenHandler_avoidDuplicateCodes(t *testing.T) {
 	body := []byte(`{"url":"https://new-url.org"}`)
 	req := httptest.NewRequest(http.MethodPost, "/shorten", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-
+	h := &Handler{Store: storage.NewInMemoryStore()}
 	rr := httptest.NewRecorder()
-	ShortenHandler(rr, req)
+	h.ShortenHandler(rr, req)
 
 	if rr.Code != http.StatusInternalServerError {
 
@@ -145,9 +152,9 @@ func TestShortenHandler_failsAfterTooManyDuplicates(t *testing.T) {
 	body := []byte(`{"url":"https://new.com"}`)
 	req := httptest.NewRequest(http.MethodPost, "/shorten", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-
+	h := &Handler{Store: storage.NewInMemoryStore()}
 	rr := httptest.NewRecorder()
-	ShortenHandler(rr, req)
+	h.ShortenHandler(rr, req)
 
 	if rr.Code != http.StatusInternalServerError {
 		t.Fatalf("expected status code to be %d, got %d", http.StatusInternalServerError, rr.Code)

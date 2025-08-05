@@ -11,7 +11,7 @@ import (
 )
 
 type Handler struct {
-	Store *storage.MongoStore
+	Store storage.Store
 }
 type shortenRequest struct {
 	URL string `json:"url"`

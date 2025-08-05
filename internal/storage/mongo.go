@@ -8,6 +8,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+var _ Store = (*MongoStore)(nil)
+
 type MongoStore struct {
 	client     *mongo.Client
 	collection *mongo.Collection
