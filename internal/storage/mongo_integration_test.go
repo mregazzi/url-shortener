@@ -3,28 +3,10 @@
 package storage
 
 import (
-	"fmt"
 	"os"
-	"sort"
 	"testing"
 )
 
-func allEnv() {
-	// Get all environment variables
-	envVars := os.Environ()
-
-	// Sort them for consistent output
-	sort.Strings(envVars)
-
-	fmt.Println("Environment Variables:")
-	fmt.Println("=====================")
-
-	for _, env := range envVars {
-		fmt.Println(env)
-	}
-
-	fmt.Printf("\nTotal: %d environment variables\n", len(envVars))
-}
 func TestMongoStore_SaveAndGet(t *testing.T) {
 	uri := os.Getenv("MONGO_URI")
 	if uri == "" {

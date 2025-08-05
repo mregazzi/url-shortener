@@ -1,0 +1,23 @@
+name: integration.yml
+
+on:
+  workflow_dispatch:     # manuale
+  push:
+    branches: [ main ]   # oppure solo sul ramo principale
+
+jobs:
+  integration-tests:
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo
+        ports:
+          - 27017:27017
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.24'
+      - name: Run system tests
+        run: go test ./internal/storage -tags=integration -v
